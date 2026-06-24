@@ -3,12 +3,27 @@ TraceMark - AI 内容水印系统 v2.4 (AI防伪检测版)
 """
 import os
 import uuid
+import urllib.request
 from pathlib import Path
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from typing import List
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+
+# ✅ 自动下载 U²-Net 模型（如果不存在）
+MODEL_PATH = Path(__file__).parent / "watermarking" / "u2net.pth"
+MODEL_URL = "https://github.com/xuebinqin/U-2-Net/releases/download/v1.0/u2net.pth"
+
+if not MODEL_PATH.exists():
+    print(f"[📥] 正在下载 U²-Net 模型...")
+    try:
+        MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(MODEL_URL, str(MODEL_PATH))
+        print(f"[✅] 模型下载完成: {MODEL_PATH}")
+    except Exception as e:
+        print(f"[⚠️] 模型下载失败: {e}")
+        print(f"[ℹ️] 将使用默认策略，某些功能可能受限")
 
 from watermarking.lsb import embed_uid_in_image as lsb_embed, extract_uid_from_image as lsb_extract
 from watermarking.dct import embed_uid_in_image as dct_embed, extract_uid_from_image as dct_extract
