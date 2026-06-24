@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TraceMark - AI内容水印系统</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            border: 1px solid #ecf0f1;
+            border-radius: 10px;
+            background-color: #fafafa;
+        }
+        h2 {
+            color: #3498db;
+            margin-top: 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        input[type="file"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #bdc3c7;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #embedResult, #verifyResult, #detectResult {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .report-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #ddd;
+        }
+        .report-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .report-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .score-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .score-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+        .score-green { background: #28a745; }
+        .score-yellow { background: #ffc107; }
+        .score-red { background: #dc3545; }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .badge-safe { background: #28a745; color: white; }
+        .badge-warning { background: #ffc107; color: #2c3e50; }
+        .badge-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>TraceMark - AI内容水印系统</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 30px;">
+        基于 LLM 智能决策与 AI 防伪检测的混合架构
+    </p>
+
+    <!-- 自适应水印区域 -->
+    <div class="section">
+        <h2>自适应水印</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 15px;">
+            智能分析图像内容，自动调整水印强度，平衡安全性与图像质量
+        </p>
+        <form id="adaptiveForm" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".png,.jpg,.jpeg" required>
+            <input type="text" name="uid" placeholder="请输入您的UID (例如: U2025001)" required>
+            <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+                <input type="checkbox" name="auto_strength" checked style="margin-right: 10px;">
+                <span>启用自适应强度</span>
+            </label>
+            <button type="submit">嵌入水印</button>
+        </form>
+        <div id="adaptiveResult"></div>
+        <div id="strengthVisualization" style="margin-top: 20px; display: none;"></div>
+    </div>
+
+    <!-- 验证水印区域 -->
+    <div class="section">
+        <h2>验证水印</h2>
+        <form id="verifyForm" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".png,.jpg,.jpeg" required>
+            <button type="submit">验证水印</button>
+        </form>
+        <div id="verifyResult"></div>
+    </div>
+
+    <!-- 批量水印区域 -->
+    <div class="section">
+        <h2>批量嵌入水印</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 15px;">
+            同时为多张图片嵌入水印，每张图片会生成唯一的 UID
+        </p>
+        <form id="batchForm" enctype="multipart/form-data">
+            <input type="file" name="files" accept=".png,.jpg,.jpeg" multiple required>
+            <p style="color: #3498db; font-size: 13px; margin-top: -5px; margin-bottom: 10px;">
+                💡 提示：按住 Ctrl/Cmd 键可选择多个文件，或直接拖拽文件到此处
+            </p>
+            <input type="text" name="uid_prefix" placeholder="请输入UID前缀 (例如: U2025)" required>
+            <button type="submit">批量嵌入水印</button>
+        </form>
+        <div id="batchResult"></div>
+    </div>
+
+    <!-- AI防伪检测区域 -->
+    <div class="section">
+        <h2>AI防伪检测</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 15px;">
+            使用 AI 检测图像是否被篡改，并验证水印完整性，生成综合防伪报告
+        </p>
+        <form id="detectForm" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".png,.jpg,.jpeg" required>
+            <button type="submit">开始检测</button>
+        </form>
+        <div id="detectResult"></div>
+    </div>
+
+    <!-- 操作历史区域 -->
+    <div class="section">
+        <h2>操作历史</h2>
+        <p style="color: #7f8c8d; font-size: 14px; margin-bottom: 15px;">
+            查看水印操作记录和统计数据
+        </p>
+        
+        <!-- 搜索框 -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="searchUid" placeholder="搜索 UID..." style="flex: 1;">
+            <button onclick="loadHistory()">查询历史</button>
+            <button onclick="loadStats()">刷新统计</button>
+            <button onclick="clearHistory()" style="background-color: #e74c3c;">清除历史</button>
+        </div>
+        
+        <!-- 统计数据 -->
+        <div id="statsResult" class="report-box" style="display: none;">
+            <div class="report-title">统计数据</div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #3498db;">0</div>
+                    <div style="font-size: 14px; color: #7f8c8d;">总操作次数</div>
+                </div>
+                <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #27ae60;">0</div>
+                    <div style="font-size: 14px; color: #7f8c8d;">今日操作</div>
+                </div>
+                <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #f39c12;">0</div>
+                    <div style="font-size: 14px; color: #7f8c8d;">嵌入次数</div>
+                </div>
+                <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #9b59b6;">0</div>
+                    <div style="font-size: 14px; color: #7f8c8d;">验证次数</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史记录列表 -->
+        <div id="historyResult"></div>
+    </div>
+</div>
+
+<script>
+    // 页面加载时自动加载统计和历史
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStats();
+        loadHistory();
+    });
+
+    // 加载操作历史
+    async function loadHistory() {
+        const uid = document.getElementById('searchUid').value;
+        const resultDiv = document.getElementById('historyResult');
+        resultDiv.innerHTML = '<div class="info" style="padding: 12px;">正在加载历史记录...</div>';
+
+        try {
+            const url = uid ? `/watermark-history?uid=${encodeURIComponent(uid)}` : '/watermark-history';
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === 'success' && data.data.length > 0) {
+                let html = '<div class="report-box"><div class="report-title">操作历史记录</div>';
+                html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+                html += '<thead><tr style="background: #f8f9fa;"><th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">UID</th><th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">文件名</th><th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">操作类型</th><th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">时间</th></tr></thead><tbody>';
+                
+                data.data.forEach(item => {
+                    const typeIcon = item.operation_type === 'embed' ? '[嵌入]' : (item.operation_type === 'verify' ? '[验证]' : (item.operation_type === 'detect' ? '[检测]' : '[其他]'));
+                    html += `<tr style="border-bottom: 1px solid #f0f0f0;"><td style="padding: 10px;">${item.uid}</td><td style="padding: 10px;">${item.filename || '-'}</td><td style="padding: 10px;">${typeIcon} ${item.operation_type === 'embed' ? '嵌入' : (item.operation_type === 'verify' ? '验证' : (item.operation_type === 'detect' ? '检测' : '其他'))}</td><td style="padding: 10px;">${item.embed_time}</td></tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                resultDiv.innerHTML = html;
+            } else {
+                resultDiv.innerHTML = '<div class="info" style="padding: 12px;">暂无操作记录</div>';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            resultDiv.innerHTML = `<div class="error" style="padding: 12px;">加载失败: ${error.message}</div>`;
+        }
+        
+        // 查询历史时同时更新统计数据
+        loadStats(document.getElementById('searchUid').value);
+    }
+
+    // 加载统计数据
+    async function loadStats(uid = null) {
+        const resultDiv = document.getElementById('statsResult');
+
+        try {
+            const url = uid ? `/watermark-stats?uid=${encodeURIComponent(uid)}` : '/watermark-stats';
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                const stats = data.stats;
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div class="report-title">统计数据</div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #3498db;">${stats.total_operations}</div>
+                            <div style="font-size: 14px; color: #7f8c8d;">总操作次数</div>
+                        </div>
+                        <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #27ae60;">${stats.today_operations}</div>
+                            <div style="font-size: 14px; color: #7f8c8d;">今日操作</div>
+                        </div>
+                        <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #f39c12;">${stats.uid_embeds}</div>
+                            <div style="font-size: 14px; color: #7f8c8d;">${uid ? '当前UID嵌入次数' : '嵌入次数'}</div>
+                        </div>
+                        <div class="report-item" style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #9b59b6;">${stats.total_verifies}</div>
+                            <div style="font-size: 14px; color: #7f8c8d;">验证次数</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    // 清除操作历史
+    async function clearHistory() {
+        const uid = document.getElementById('searchUid').value;
+        
+        let confirmMessage;
+        if (uid) {
+            confirmMessage = `确定要清除 UID "${uid}" 的操作历史吗？此操作不可恢复！`;
+        } else {
+            confirmMessage = '确定要清除所有操作历史吗？此操作不可恢复！';
+        }
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const url = uid ? `/clear-history?uid=${encodeURIComponent(uid)}` : '/clear-history';
+            const response = await fetch(url, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                alert(data.message || '操作历史已清除！');
+                // 刷新统计和历史记录
+                loadStats();
+                loadHistory();
+            } else {
+                alert(`清除失败: ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert(`清除失败: ${error.message}`);
+        }
+    }
+
+    // 处理自适应水印表单提交
+    document.getElementById('adaptiveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resultDiv = document.getElementById('adaptiveResult');
+        resultDiv.className = 'info';
+        resultDiv.innerHTML = '正在分析图像内容...<br><small>请稍候，正在计算最佳水印强度...</small>';
+
+        try {
+            const response = await fetch('/adaptive-watermark/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                displayAdaptiveResult(data);
+            } else {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `嵌入失败: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            resultDiv.className = 'error';
+            resultDiv.textContent = `嵌入失败: ${error.message}`;
+        }
+    });
+
+    // 显示自适应水印结果
+    function displayAdaptiveResult(data) {
+        const resultDiv = document.getElementById('adaptiveResult');
+        resultDiv.className = 'success';
+
+        let analysisHtml = '';
+        if (data.analysis) {
+            const analysis = data.analysis;
+            const sensitive = analysis.sensitive_info;
+            const strength = analysis.adjusted_strength;
+            const strengthPercent = Math.round(strength * 100);
+            
+            // 获取强度颜色
+            const getStrengthColor = (s) => {
+                if (s < 0.3) return '#27ae60'; // 绿色 - 低
+                if (s < 0.6) return '#f39c12'; // 橙色 - 中
+                return '#e74c3c'; // 红色 - 高
+            };
+            
+            // 安全性评分
+            const securityScore = Math.round(strength * 100);
+            const qualityScore = Math.round((1 - strength * 0.7) * 100);
+            
+            analysisHtml = `
+                <div class="report-box">
+                    <div class="report-title">自适应分析报告</div>
+                    
+                    <div class="report-item">
+                        <strong>图像复杂度:</strong> ${analysis.complexity} (${analysis.complexity_level})
+                    </div>
+                    
+                    <div class="report-item">
+                        <strong>敏感区域检测:</strong><br>
+                        • 检测到主体: ${sensitive.has_subject ? '是' : '否'} (${sensitive.regions_count}个区域)<br>
+                        • 检测置信度: ${sensitive.confidence === 'high' ? '高' : (sensitive.confidence === 'medium' ? '中' : '低')}<br>
+                        • 含文字: ${sensitive.has_text ? '是' : '否'}<br>
+                        • 敏感比例: ${sensitive.sensitive_ratio}%
+                    </div>
+                    
+                    <div class="report-item">
+                        <strong>基础强度:</strong> ${analysis.base_strength}
+                    </div>
+                    
+                    <!-- 强度可视化 -->
+                    <div class="report-item" style="margin-top: 15px;">
+                        <strong>水印强度:</strong> ${strengthPercent}%
+                        <div style="margin-top: 10px;">
+                            <div style="height: 20px; background: #ecf0f1; border-radius: 10px; overflow: hidden;">
+                                <div 
+                                    style="height: 100%; width: ${strengthPercent}%; background: linear-gradient(90deg, ${getStrengthColor(strength)}, ${getStrengthColor(strength * 0.8)}); transition: width 0.5s ease;"
+                                ></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #7f8c8d; margin-top: 5px;">
+                                <span>低强度</span>
+                                <span>中等强度</span>
+                                <span>高强度</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 安全性 vs 质量平衡 -->
+                    <div class="report-item" style="margin-top: 15px;">
+                        <strong>安全性 vs 图像质量:</strong>
+                        <div style="display: flex; justify-content: space-between; margin-top: 10px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 12px; color: #7f8c8d;">安全性</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">${securityScore}%</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 12px; color: #7f8c8d;">图像质量</div>
+                                <div style="font-size: 18px; font-weight: bold; color: #3498db;">${qualityScore}%</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; height: 8px; background: #ecf0f1; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${securityScore}%; background: linear-gradient(90deg, #27ae60, #3498db);"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="report-item">
+                        <strong>强度级别:</strong> ${analysis.strategy.description}
+                    </div>
+                    
+                    <div class="report-item">
+                        <strong>嵌入策略:</strong><br>
+                        • 每像素嵌入位数: ${analysis.strategy.bits_per_pixel} bits<br>
+                        • DCT 系数: ${analysis.strategy.dct_coefficient}
+                    </div>
+                </div>
+            `;
+        }
+
+        resultDiv.innerHTML = `
+            ${analysisHtml}
+            
+            <div class="report-box">
+                <div class="report-title">水印嵌入成功</div>
+                
+                <div class="report-item">
+                    <strong>水印UID:</strong> ${data.uid}
+                </div>
+                
+                <div>
+                    <strong>📷 水印图像:</strong><br>
+                    <img src="${data.watermarked_url}" alt="水印图像" style="max-width: 100%; margin: 10px 0; border-radius: 8px;">
+                </div>
+                
+                <div>
+                    <a href="${data.watermarked_url}" download="${data.uid}_watermarked.png">
+                        <button>⬇️ 下载水印图像</button>
+                    </a>
+                </div>
+            </div>
+        `;
+    }
+
+    // 处理批量水印表单提交
+    document.getElementById('batchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resultDiv = document.getElementById('batchResult');
+        resultDiv.className = 'info';
+        resultDiv.innerHTML = '正在批量处理...<br><small>请稍候，AI 正在分析每张图像...</small>';
+
+        try {
+            const response = await fetch('/batch-watermark/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.status === 'completed') {
+                displayBatchResult(data);
+            } else {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `批量处理失败: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            resultDiv.className = 'error';
+            resultDiv.textContent = `批量处理失败: ${error.message}`;
+        }
+    });
+
+    // 显示批量处理结果
+    function displayBatchResult(data) {
+        const resultDiv = document.getElementById('batchResult');
+        resultDiv.className = data.error_count === 0 ? 'success' : 'warning';
+        
+        let html = `
+            <div class="report-box">
+                <div class="report-title">批量处理结果</div>
+                <div style="margin-bottom: 15px;">
+                    <strong>总计:</strong> ${data.total_files} 个文件<br>
+                    <strong>成功:</strong> ${data.success_count} 个<br>
+                    <strong>失败:</strong> ${data.error_count} 个
+                </div>
+        `;
+
+        // 显示成功列表
+        if (data.results.length > 0) {
+            html += `
+                <div style="margin-top: 15px;">
+                    <strong>成功列表:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+            `;
+            data.results.forEach(item => {
+                html += `<li>${item.filename} → UID: ${item.uid}</li>`;
+            });
+            html += '</ul></div>';
+
+            // 添加全选下载按钮
+            html += `<button onclick="downloadAllBatchResults()" style="margin-top: 10px; background: #28a745;">📥 下载全部</button>`;
+        }
+
+        // 显示错误列表
+        if (data.errors.length > 0) {
+            html += `
+                <div style="margin-top: 15px;">
+                    <strong>失败列表:</strong>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+            `;
+            data.errors.forEach(item => {
+                html += `<li>${item.filename}: ${item.error}</li>`;
+            });
+            html += '</ul></div>';
+        }
+
+        html += '</div>';
+        resultDiv.innerHTML = html;
+
+        // 保存结果到全局变量供下载使用
+        window.batchResults = data.results;
+    }
+
+    // 下载全部结果
+    async function downloadAllBatchResults() {
+        if (!window.batchResults || window.batchResults.length === 0) return;
+        
+        for (const result of window.batchResults) {
+            const response = await fetch(result.image_url);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `watermarked_${result.filename}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            await new Promise(resolve => setTimeout(resolve, 500)); // 间隔下载
+        }
+    }
+
+    // 处理验证表单提交
+    document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resultDiv = document.getElementById('verifyResult');
+        resultDiv.className = 'info';
+        resultDiv.textContent = '正在验证...';
+
+        try {
+            const response = await fetch('/verify/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                resultDiv.className = 'success';
+                resultDiv.textContent = `验证成功！检测到的 UID: ${data.uid}`;
+            } else {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `验证失败: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            resultDiv.className = 'error';
+            resultDiv.textContent = `验证失败: ${error.message}`;
+        }
+    });
+
+    // 处理防伪检测表单提交
+    document.getElementById('detectForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const resultDiv = document.getElementById('detectResult');
+        resultDiv.className = 'info';
+        resultDiv.innerHTML = '正在进行 AI 检测...<br><small>请稍候，AI 正在分析图像...</small>';
+
+        try {
+            const response = await fetch('/detect/', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                displayDetectionReport(data);
+            } else {
+                resultDiv.className = 'error';
+                resultDiv.textContent = `检测失败: ${data.message}`;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            resultDiv.className = 'error';
+            resultDiv.textContent = `检测失败: ${error.message}`;
+        }
+    });
+
+    // 显示检测报告
+    function displayDetectionReport(data) {
+        const resultDiv = document.getElementById('detectResult');
+        const tamper = data.tamper_detection;
+        const score = data.integrity_score;
+        const isSafe = !tamper.is_tampered && data.watermark_verified;
+        
+        let scoreClass = 'score-green';
+        let badgeClass = 'badge-safe';
+        let badgeText = '安全';
+        let resultClass = 'success';
+        
+        if (score < 0.5) {
+            scoreClass = 'score-red';
+            badgeClass = 'badge-danger';
+            badgeText = '危险';
+            resultClass = 'error';
+        } else if (score < 0.8) {
+            scoreClass = 'score-yellow';
+            badgeClass = 'badge-warning';
+            badgeText = '可疑';
+            resultClass = 'warning';
+        }
+
+        resultDiv.className = resultClass;
+        resultDiv.innerHTML = `
+            <div class="report-box">
+                <div class="report-title">AI 防伪检测报告 ${isSafe ? '[安全]' : '[警告]'}</div>
+                
+                <div class="report-item">
+                    <strong>完整性评分:</strong> 
+                    <div class="score-bar">
+                        <div class="score-fill ${scoreClass}" style="width: ${score * 100}%"></div>
+                    </div>
+                    <span style="font-size: 24px; font-weight: bold;">${(score * 100).toFixed(1)}%</span>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+
+                <div class="report-item">
+                    <strong>篡改检测:</strong> 
+                    ${tamper.is_tampered ? '[检测到篡改]' : '[未检测到篡改]'}
+                    <br>
+                    <small>置信度: ${(tamper.confidence * 100).toFixed(1)}%</small>
+                </div>
+
+                <div class="report-item">
+                    <strong>篡改类型:</strong> ${tamper.tamper_type === 'none' ? '无' : tamper.tamper_type}
+                </div>
+
+                ${tamper.tamper_regions && tamper.tamper_regions.length > 0 ? `
+                <div class="report-item">
+                    <strong>可疑区域:</strong> ${tamper.tamper_regions.join(', ')}
+                </div>
+                ` : ''}
+
+                <div class="report-item">
+                    <strong>水印验证:</strong> ${data.watermark_verified ? `[有效] (UID: ${data.uid})` : '[无效或未嵌入]'}
+                </div>
+
+                <div class="report-item">
+                    <strong>分析说明:</strong> ${tamper.description}
+                </div>
+            </div>
+        `;
+    }
+</script>
+</body>
+</html>
